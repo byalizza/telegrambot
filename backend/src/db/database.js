@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client';
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { seedDatabase } from './seed.js';
@@ -12,22 +12,28 @@ let _client;
 export async function getDatabase() {
   if (_client) return _client;
 
-  const dir = dirname(DB_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
-  _client = createClient({ url: `file:${DB_PATH}` });
-
-  const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
-  const statements = schema.split(';').filter(s => s.trim());
-  for (const stmt of statements) {
-    try {
-      await _client.execute(stmt.trim() + ';');
-    } catch (e) {
-      // IF NOT EXISTS may still throw on some versions
-    }
+  if (tursoUrl && tursoToken) {
+    _client = createClient({ url: tursoUrl, authToken: tursoToken });
+  } else {
+    const dir = dirname(DB_PATH);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    _client = createClient({ url: `file:${DB_PATH}` });
   }
 
-  await seedDatabase(_client);
+  try {
+    const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
+    const statements = schema.split(';').filter(s => s.trim());
+    for (const stmt of statements) {
+      try { await _client.execute(stmt.trim() + ';'); } catch (e) {}
+    }
+    await seedDatabase(_client);
+  } catch (e) {
+    console.error('[DB] Init error:', e.message);
+  }
+
   return _client;
 }
 

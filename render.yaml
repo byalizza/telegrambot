@@ -20,3 +20,7 @@ services:
         sync: false
       - key: CWALLET_MERCHANT_ID
         sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
