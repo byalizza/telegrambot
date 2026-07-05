@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    environment:
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-farmgame-secret-change-me}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      BOT_USERNAME: ${BOT_USERNAME:-FarmMineBot}
+      CWALLET_API_KEY: ${CWALLET_API_KEY:-}
+      CWALLET_API_URL: https://api.cwallet.com/v1
+      CWALLET_MERCHANT_ID: ${CWALLET_MERCHANT_ID:-}
+      DAILY_WITHDRAWAL_LIMIT_USD: "50"
+      MIN_WITHDRAWAL_GOLD: "500"
+      WITHDRAWAL_COOLDOWN_HOURS: "24"
+    ports:
+      - "8080:8080"
+    volumes:
+      - farmgame_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/public:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  farmgame_data:
