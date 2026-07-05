@@ -31,7 +31,7 @@ function renderFAQPage(container) {
         },
         {
             q: '💸 Nasıl para çekerim?',
-            a: 'Cüzdan sekmesine gidin, CWallet ID\'nizi girin ve çekim yapmak istediğiniz Altın miktarını yazın. Minimum çekim 500 Altın ($0.05)\'dir. Çekimler otomatik olarak CWallet cüzdanınıza gönderilir.'
+            a: 'Cüzdan sekmesinde Çekim sekmesine geçin, cüzdan adresinizi ve Altın miktarını girin. Talep oluşturulur, admin onaylayınca paranız gönderilir. Minimum 500 Altın ($0.05). Yatırım yapmak için Yatırım sekmesinden desteklenen tokenları görüp admin cüzdanına gönderebilirsiniz.'
         },
         {
             q: '👥 Ortaklık sistemi nasıl çalışır?',

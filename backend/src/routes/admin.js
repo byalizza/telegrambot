@@ -81,7 +81,7 @@ async function load(){const h={'X-Admin-Token':t},d=await fetch('/api/admin/user
 document.getElementById('title').textContent=u.username+' (#'+u.id+')';
 document.getElementById('content').innerHTML=
 '<div class="card"><div class="flex"><div><div class="label">Altın</div><div class="value">'+u.gold_balance.toLocaleString()+'</div></div><div><div class="label">Toplam Kazanç</div><div class="value">'+u.total_earned.toLocaleString()+'</div></div><div><div class="label">Toplam Çekim</div><div class="value">'+u.total_withdrawn.toLocaleString()+'</div></div><div><div class="label">Saatlik Üretim</div><div class="value green">'+Math.round(d.hourlyProduction)+'</div></div></div></div>'+
-'<div class="card"><div class="flex"><div><div class="label">Telegram</div><div class="value">'+(u.telegram_id||'-')+'</div></div><div><div class="label">CWallet</div><div class="value">'+(u.cwallet_id||'-')+'</div></div><div><div class="label">Kayıt</div><div class="value">'+new Date(u.created_at).toLocaleString('tr-TR')+'</div></div><div><div class="label">Durum</div><div class="value">'+(u.is_active?'Aktif':'Pasif')+'</div></div></div></div>'+
+'<div class="card"><div class="flex"><div><div class="label">Telegram</div><div class="value">'+(u.telegram_id||'-')+'</div></div><div><div class="label">Cüzdan</div><div class="value">'+(u.cwallet_id||u.withdraw_address||'-')+'</div></div><div><div class="label">Kayıt</div><div class="value">'+new Date(u.created_at).toLocaleString('tr-TR')+'</div></div><div><div class="label">Durum</div><div class="value">'+(u.is_active?'Aktif':'Pasif')+'</div></div></div></div>'+
 '<div class="card"><h3>Hayvanlar</h3><table><tr><th>Hayvan</th><th>Adet</th></tr>'+d.animals.map(a=>'<tr><td>'+a.emoji+' '+a.name+'</td><td>'+a.quantity+'</td></tr>').join('')+'</table></div>'+
 '<div class="card"><h3>İşlemler</h3><table><tr><th>Tarih</th><th>Tip</th><th>Miktar</th><th>Açıklama</th></tr>'+d.transactions.map(tx=>'<tr><td>'+new Date(tx.created_at).toLocaleString('tr-TR')+'</td><td>'+tx.type+'</td><td>'+(tx.type==='WITHDRAWAL'?'-':'+')+tx.amount_gold.toLocaleString()+'</td><td>'+tx.description+'</td></tr>').join('')+'</table></div>';}
 load();</script></body></html>`; }
@@ -104,17 +104,40 @@ tr:hover{background:#1c2128}
 .badge-offline{background:#30363d;color:#8b949e}
 a{color:#58a6ff;text-decoration:none}
 a:hover{text-decoration:underline}
+.btn-approve{background:#238636;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem}
+.btn-reject{background:#da3633;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem}
+.btn-approve:hover{background:#2ea043}
+.btn-reject:hover{background:#f85149}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .search{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#c9d1d9;width:200px}
 </style></head><body>
 <div class="topbar"><h1>🌾 FarmMine Admin</h1><input class="search" id="search" placeholder="Kullanıcı ara..." oninput="filterTable()"/></div>
 <div class="stats" id="stats"></div>
+
+<h2 style="margin-bottom:12px;">⬇️ Bekleyen Yatırımlar (Deposit)</h2>
+<div id="pendingDeposits" style="margin-bottom:20px;">Yükleniyor...</div>
+
+<h2 style="margin-bottom:12px;">⬆️ Bekleyen Çekimler (Withdrawal)</h2>
+<div id="pendingWithdrawals" style="margin-bottom:20px;">Yükleniyor...</div>
+
 <h2 style="margin-bottom:12px;">Kullanıcılar</h2>
 <table><thead><tr><th>ID</th><th>Kullanıcı</th><th>Telegram</th><th>Altın</th><th>Kazanç</th><th>Çekim</th><th>Durum</th></tr></thead><tbody id="usersBody"></tbody></table>
 <script>let users=[],token=new URLSearchParams(location.search).get('token'),h={'X-Admin-Token':token};
 async function load(){const s=await fetch('/api/admin/stats',{headers:h}).then(r=>r.json());
 document.getElementById('stats').innerHTML='<div class="stat"><div class="stat-num">'+s.totalUsers+'</div><div class="stat-label">Kullanıcı</div></div><div class="stat"><div class="stat-num">'+s.activeUsers+'</div><div class="stat-label">Aktif</div></div><div class="stat"><div class="stat-num">'+(s.totalGold/10000).toFixed(2)+'$</div><div class="stat-label">Toplam Altın</div></div><div class="stat"><div class="stat-num">'+(s.totalWithdrawn/10000).toFixed(2)+'$</div><div class="stat-label">Çekilen</div></div><div class="stat"><div class="stat-num">'+s.todayWithdrawals+'</div><div class="stat-label">Bugün Çekim</div></div><div class="stat"><div class="stat-num">'+Number(s.todayVolumeUsd).toFixed(2)+'$</div><div class="stat-label">Bugün Hacim</div></div>';
-const r=await fetch('/api/admin/users',{headers:h}).then(r=>r.json());users=r.users;renderTable();}
+const r=await fetch('/api/admin/users',{headers:h}).then(r=>r.json());users=r.users;renderTable();loadPending();}
+async function loadPending(){const r=await fetch('/api/admin/pending?token='+token).then(r=>r.json());
+// Deposits
+const de=document.getElementById('pendingDeposits');
+if(!r.deposits||r.deposits.length===0){de.innerHTML='<p style="color:#8b949e;">Bekleyen yatırım bildirimi yok.</p>';}else{de.innerHTML='<table><thead><tr><th>Kullanıcı</th><th>Altın</th><th>USD</th><th>Açıklama</th><th>Tarih</th><th>İşlem</th></tr></thead><tbody>'+r.deposits.map(t=>'<tr><td><a href="/admin/user?userId='+t.userId+'&token='+token+'">'+t.username+'</a></td><td style="color:#ffd700">'+t.amountGold.toLocaleString()+'</td><td>$'+t.amountUsd.toFixed(2)+'</td><td style="font-size:.7rem;max-width:180px;word-break:break-all">'+(t.description||t.txHash)+'</td><td>'+new Date(t.createdAt).toLocaleString('tr-TR')+'</td><td><button class="btn-approve" onclick="approve('+t.id+')">✅ Onayla</button> <button class="btn-reject" onclick="reject('+t.id+')">❌ Reddet</button></td></tr>').join('')+'</tbody></table>';}
+// Withdrawals
+const we=document.getElementById('pendingWithdrawals');
+if(!r.withdrawals||r.withdrawals.length===0){we.innerHTML='<p style="color:#8b949e;">Bekleyen çekim talebi yok.</p>';}else{we.innerHTML='<table><thead><tr><th>Kullanıcı</th><th>Altın</th><th>USD</th><th>Adres</th><th>Tarih</th><th>İşlem</th></tr></thead><tbody>'+r.withdrawals.map(t=>'<tr><td><a href="/admin/user?userId='+t.userId+'&token='+token+'">'+t.username+'</a></td><td style="color:#ffd700">'+t.amountGold.toLocaleString()+'</td><td>$'+t.amountUsd.toFixed(2)+'</td><td style="font-size:.75rem;word-break:break-all;max-width:150px">'+t.address+'</td><td>'+new Date(t.createdAt).toLocaleString('tr-TR')+'</td><td><button class="btn-approve" onclick="approve('+t.id+')">✅ Onayla</button> <button class="btn-reject" onclick="reject('+t.id+')">❌ Reddet</button></td></tr>').join('')+'</tbody></table>';}}
+async function approve(id){if(!confirm('Onaylıyor musun?'))return;const r=await fetch('/api/admin/pending/approve?token='+token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txId:id})}).then(r=>r.json());if(r.success){showToast('Onaylandı!');loadPending();loadStats();}else{showToast('Hata: '+r.error);}}
+async function reject(id){if(!confirm('Reddediyor musun?'))return;const r=await fetch('/api/admin/pending/reject?token='+token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({txId:id})}).then(r=>r.json());if(r.success){showToast('Reddedildi');loadPending();}else{showToast('Hata: '+r.error);}}
+function showToast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:12px 24px;border-radius:8px;z-index:999;font-weight:600';document.body.appendChild(t);setTimeout(()=>t.remove(),2500);}
+async function loadStats(){const s=await fetch('/api/admin/stats',{headers:h}).then(r=>r.json());
+document.getElementById('stats').innerHTML='<div class="stat"><div class="stat-num">'+s.totalUsers+'</div><div class="stat-label">Kullanıcı</div></div><div class="stat"><div class="stat-num">'+s.activeUsers+'</div><div class="stat-label">Aktif</div></div><div class="stat"><div class="stat-num">'+(s.totalGold/10000).toFixed(2)+'$</div><div class="stat-label">Toplam Altın</div></div><div class="stat"><div class="stat-num">'+(s.totalWithdrawn/10000).toFixed(2)+'$</div><div class="stat-label">Çekilen</div></div><div class="stat"><div class="stat-num">'+s.todayWithdrawals+'</div><div class="stat-label">Bugün Çekim</div></div><div class="stat"><div class="stat-num">'+Number(s.todayVolumeUsd).toFixed(2)+'$</div><div class="stat-label">Bugün Hacim</div></div>';}
 function renderTable(){const q=document.getElementById('search').value.toLowerCase(),f=users.filter(u=>u.username.toLowerCase().includes(q)||String(u.id).includes(q));
 document.getElementById('usersBody').innerHTML=f.map(u=>'<tr onclick="window.location=\'/admin/user?userId='+u.id+'&token='+token+'\'"><td>'+u.id+'</td><td><a href="/admin/user?userId='+u.id+'&token='+token+'">'+u.username+'</a></td><td>'+(u.telegram_id||'-')+'</td><td style="color:#ffd700">'+Number(u.gold_balance).toLocaleString()+'</td><td style="color:#4caf50">'+Number(u.total_earned).toLocaleString()+'</td><td>'+Number(u.total_withdrawn).toLocaleString()+'</td><td><span class="badge '+(u.is_active?'badge-online':'badge-offline')+'">'+(u.is_active?'Aktif':'Pasif')+'</span></td></tr>').join('');}
 function filterTable(){renderTable()}

@@ -15,12 +15,23 @@ export async function getDatabase() {
   const tursoUrl = process.env.TURSO_DATABASE_URL;
   const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
-  if (tursoUrl && tursoToken) {
-    _client = createClient({ url: tursoUrl, authToken: tursoToken });
-  } else {
+  let useTurso = tursoUrl && tursoToken;
+  if (useTurso) {
+    try {
+      _client = createClient({ url: tursoUrl, authToken: tursoToken });
+      await _client.execute('SELECT 1');
+      console.log('[DB] Turso connected');
+    } catch (e) {
+      console.error('[DB] Turso failed (' + e.message + '), falling back to local SQLite');
+      useTurso = false;
+    }
+  }
+
+  if (!useTurso) {
     const dir = dirname(DB_PATH);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     _client = createClient({ url: `file:${DB_PATH}` });
+    console.log('[DB] Using local SQLite at', DB_PATH);
   }
 
   try {
